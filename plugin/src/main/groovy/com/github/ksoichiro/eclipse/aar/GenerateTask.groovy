@@ -8,11 +8,12 @@ import org.gradle.api.artifacts.ResolvedDependency
 import org.gradle.api.artifacts.SelfResolvingDependency
 import org.gradle.api.file.CopySpec
 import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.Internal
 
 class GenerateTask extends BaseTask {
-    Map<AndroidProject, Set<AndroidDependency>> fileDependencies
-    Map<AndroidProject, Set<AndroidDependency>> projectDependencies
-    Map<String, ResolvedDependency> allConfigurationsDependencies
+    @Internal Map<AndroidProject, Set<AndroidDependency>> fileDependencies
+    @Internal Map<AndroidProject, Set<AndroidDependency>> projectDependencies
+    @Internal Map<String, ResolvedDependency> allConfigurationsDependencies
 
     GenerateTask() {
         description = 'Used for Eclipse. Copies all AAR dependencies for library directory.'
