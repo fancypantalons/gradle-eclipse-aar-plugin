@@ -237,7 +237,9 @@ class GenerateTask extends BaseTask {
             }
         }
         println "Adding dependency: ${dependency.file.path}"
-        copyClosure('libs')
+        if (extension.populateLibsDirectoryEnabled) {
+            copyClosure('libs')
+        }
         if (isAarDependency) {
             p.project.copy { CopySpec it ->
                 it.setFileMode(644)
