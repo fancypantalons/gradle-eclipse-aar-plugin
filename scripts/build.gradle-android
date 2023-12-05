@@ -1,3 +1,6 @@
+apply plugin: 'eclipse'
+apply plugin: 'com.github.ksoichiro.eclipse.aar'
+
 // Much of this was initially based on:
 // https://github.com/simonpoole/gradle-tasks/eclipse-android
 
