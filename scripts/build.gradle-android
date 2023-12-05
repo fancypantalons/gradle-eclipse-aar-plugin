@@ -1,0 +1,103 @@
+// Much of this was initially based on:
+// https://github.com/simonpoole/gradle-tasks/eclipse-android
+
+task setResolveable {
+    // this is awful but works ...... both gradles and googles documentation of
+    // the changes wrt gradle 3.0 seems to not only be vague but outright wrong
+
+    configurations.implementation.setCanBeResolved(true)
+    configurations.testImplementation.setCanBeResolved(true)
+    configurations.androidTestImplementation.setCanBeResolved(true)
+}
+
+// Force the generation of an R.java file to support Intellisense
+android.aaptOptions {
+      additionalParameters "--java", "$buildDir/generated/source/r"
+}
+
+eclipseAar {
+    androidTarget = 'android-34'
+    aarDependenciesDir = 'build/aarDependencies'
+    targetConfigurations = ['implementation', 'testImplementation', 'androidTestImplementation']
+    populateLibsDirectoryEnabled = false
+}
+
+eclipse {
+    jdt {
+        sourceCompatibility = 1.8
+        targetCompatibility = 1.8
+    }
+
+    classpath {
+        plusConfigurations += [ configurations.implementation, configurations.testImplementation, configurations.androidTestImplementation ]
+
+        file {
+            beforeMerged { classpath ->
+                classpath.entries.add(new org.gradle.plugins.ide.eclipse.model.SourceFolder("build/generated/source/r", "bin"))
+            }
+
+            whenMerged { classpath ->
+                def aars = []
+
+                classpath.entries.each { dep ->
+                    def pathString = dep.path.toString();
+
+                    if (pathString.endsWith(".aar")) {
+                        def explodedDir = new File(projectDir, "build/aarDependencies/" + dep.moduleVersion.group + "-" + dep.moduleVersion.name + "-" + dep.moduleVersion.version + "/libs/")
+
+                        if (explodedDir.exists()) {
+                            explodedDir.eachFileRecurse(groovy.io.FileType.FILES) {
+                                if (it.getName().endsWith("jar")) {
+                                    def aarJar = new org.gradle.plugins.ide.eclipse.model.Library(fileReferenceFactory.fromFile(it))
+
+                                    aarJar.sourcePath = dep.sourcePath
+                                    aars.add(aarJar)
+                                }
+                            }
+                        } else {
+                            println "Warning: Missing " + explodedDir
+                        }
+                    } else if (pathString.endsWith(".jar")) {
+                        def jarFile = fileReferenceFactory.fromFile(new File(dep.path))
+                        def aJar = new org.gradle.plugins.ide.eclipse.model.Library(jarFile)
+
+                        aJar.sourcePath = jarFile
+                        aars.add(aJar)    
+                    }
+                }
+
+                classpath.entries.removeAll { it.path.endsWith(".aar") }
+                classpath.entries.removeAll { it.path.endsWith(".jar") }
+                classpath.entries.addAll(aars)
+                
+                classpath.entries.add(new org.gradle.plugins.ide.eclipse.model.Library(fileReferenceFactory.fromFile(new File(projectDir, "build/intermediates/compile_r_class_jar/debug/R.jar"))))
+                
+                def androidJar = new org.gradle.plugins.ide.eclipse.model.Library(
+                    fileReferenceFactory.fromPath("${android.sdkDirectory}/platforms/" + android.compileSdkVersion + "/android.jar")
+                )
+
+                androidJar.sourcePath = fileReferenceFactory.fromPath("${android.sdkDirectory}/sources/" + android.compileSdkVersion)
+                classpath.entries.add(androidJar)
+              
+                // this is a fudge, the eclipse plugin uses the project names for paths of subprojects, 
+                // which naturally breaks the real classpath if different from the actual directory names
+
+                if (project != rootProject) {
+                    classpath.entries.each { sub ->
+                        def fudge = rootProject.name + '-'
+
+                        if (sub.kind == 'src' && sub.path.toString().startsWith('/' + fudge)) {
+                            def p = sub.path.toString().replace(fudge, '');                                                         
+
+                            sub.path = new File(p)                                                      
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+generateEclipseDependencies.dependsOn "setResolveable"
+eclipseClasspath.dependsOn "generateEclipseDependencies"
+eclipseClasspath.dependsOn "generateDebugSources"
